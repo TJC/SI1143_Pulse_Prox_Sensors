@@ -158,8 +158,9 @@ PulsePlug::writeParam(PulsePlug::PARAM_PSLED3_SELECT, LED3pulse);
 
 }
 
-// XXX never called!
 // Note it returns data via class variable "resp"
+// XXX TJC I have no idea why this reads 16 values; the data sheet sounds like
+// only 8 bits are available, and they indicate error codes (or success)
 void PulsePlug::fetchData () {
     // read out all result registers as lsb-msb pairs of bytes
     beginTransmission();
@@ -172,17 +173,31 @@ void PulsePlug::fetchData () {
         p[i] = Wire.read();
 }
 
-// XXX never called!
-// Note it returns data via class variable "ps1"
-void PulsePlug::fetchLedData() {
-    // read only the LED registers as lsb-msb pairs of bytes
-    beginTransmission();
-    Wire.write(PulsePlug::PS1_DATA0);
-    requestData(6); // XXX TJC Original lib had extra read() that was discarded
+uint16_t[] PulsePlug::fetchLedData() {
+    uint16_t ps[3];
+    uint16_t tmp;
+    int i = 0;
 
-    byte* q = (byte*) &ps1;
-    for (byte i = 0; i < 6; ++i)
-        q[i] = Wire.read();
+    for (uint8_t ledreg = PulsePlug::PS1_DATA0; ledreg <= PulsePlug::PS3_DATA1; ledreg+=2) {
+        // read the LED registers as lsb-msb pairs of bytes
+        beginTransmission();
+        Wire.write(ledreg);
+        endTransmission();
+        requestData(1);
+        tmp = Wire.read();
+        ps[i] = tmp;
+
+        beginTransmission();
+        Wire.write(ledreg+1);
+        endTransmission();
+        requestData(1);
+        tmp = Wire.read();
+        ps[i] += (tmp << 8);
+
+        i++;
+    }
+
+    return ps;
 }
 
 
